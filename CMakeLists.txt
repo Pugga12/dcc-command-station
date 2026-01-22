@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.13)
 
 # Pull in SDK (must be before project)
-include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+set(PICO_SDK_PATH "/home/adama/DCC3-New/pico-sdk")
+set(FREERTOS_KERNEL_PATH "/home/adama/DCC3-New/FreeRTOS-Kernel")
+include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Pull in FreeRTOS
-include($ENV{FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
+include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
 
 project(app C CXX ASM)
 set(CMAKE_C_STANDARD 11)
@@ -13,7 +15,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Initialize the SDK
 pico_sdk_init()
 
-add_executable(app main.c)
+add_executable(app src/main.c)
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_LIST_DIR})
  
