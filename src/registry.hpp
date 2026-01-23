@@ -8,6 +8,8 @@
 #include "semphr.h"
 #include "task.h"
 #include <functional>
+
+#include "framing.hpp"
 #define SYSTEM_LOCOS_SUPPORTED 16
 #define CAB_INACTIVE_TIMEOUT pdMS_TO_TICKS(5000)
 #define MAX_CABS 31
@@ -27,16 +29,16 @@ namespace DCC::Registry {
     };
 
     struct LocoSlot {
-        uint16_t id;
-        uint8_t assignedCab;
+        uint16_t id = 0;
+        uint8_t assignedCab = 0;
         SlotStatus status = FREE;
-        TickType_t lastTick;
+        TickType_t lastTick = 0;
 
-        uint8_t validityMask;
-        Packet speedState;
-        Packet function0_4Packet;
-        Packet function5_8Packet;
-        Packet function9_12Packet;
+        uint8_t validityMask = 0;
+        Framing::BitstreamPacket speedState;
+        Framing::BitstreamPacket function0_4Packet;
+        Framing::BitstreamPacket function5_8Packet;
+        Framing::BitstreamPacket function9_12Packet;
     };
 
     class LocoRegistry {
