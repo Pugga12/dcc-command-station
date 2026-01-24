@@ -23,9 +23,7 @@ void vPeriodicSenderTask(void *pvParameter) {
 
     while (true) {
         xSemaphoreTake(registry->semaphore, portMAX_DELAY);
-        registry->forEachActiveSlot([](DCC::Registry::LocoSlot& loco) {
-            xQueueSendToBack(stage2OutputQueue, &loco.speedState, portMAX_DELAY);
-        });
+
         xSemaphoreGive(registry->semaphore);
         vTaskDelay(PERIODIC_WAITING_PERIOD);
     }

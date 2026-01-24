@@ -8,6 +8,7 @@
 #include "semphr.h"
 #include "task.h"
 #include <functional>
+#include "speed.hpp"
 
 #include "framing.hpp"
 #define SYSTEM_LOCOS_SUPPORTED 16
@@ -21,7 +22,7 @@ namespace DCC::Registry {
         TIMEOUT = 2,
     };
 
-    enum ValidityBits : uint8_t {
+    enum ValidityMask : uint8_t {
         SPEED_VALID = 1 << 0,
         FUNCTION_1_VALID = 1 << 1,
         FUNCTION_2_VALID = 1 << 2,
@@ -35,10 +36,13 @@ namespace DCC::Registry {
         TickType_t lastTick = 0;
 
         uint8_t validityMask = 0;
-        Framing::BitstreamPacket speedState;
-        Framing::BitstreamPacket function0_4Packet;
-        Framing::BitstreamPacket function5_8Packet;
-        Framing::BitstreamPacket function9_12Packet;
+        uint8_t dirtyMask = 0;
+        Packets::Speed::SpeedState speed;
+        uint32_t functionMask = 0;
+
+        bool isExtendedAddress() {
+            return id > 127;
+        }
     };
 
     class LocoRegistry {
@@ -53,6 +57,36 @@ namespace DCC::Registry {
             slot->lastTick = 0;
             slot->validityMask = 0;
             freeSlots++;
+        }
+
+        LocoSlot* getSlot(uint16_t locoId) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            for (auto& slot : slots) {
+                if (slot.id == locoId) {
+                    return &slot;
+                    xSemaphoreGive(semaphore);
+                }
+            }
+            xSemaphoreGive(semaphore);
+            return nullptr;
+        }
+
+        LocoSlot* getSlot(uint8_t cabId, bool useCache) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            if (useCache && slotCacheByCab[cabId] != nullptr) {
+                xSemaphoreGive(semaphore);
+                return slotCacheByCab[cabId];
+            } else {
+                for (auto& slot : slots) {
+                    if (slot.id == cabId) {
+                        xSemaphoreGive(semaphore);
+                        return &slot;
+                    }
+                }
+            }
+
+            xSemaphoreGive(semaphore);
+            return nullptr;
         }
 
         public:
@@ -114,5 +148,7 @@ namespace DCC::Registry {
                 }
             }
         }
+
+        bool setSpeedMode()
     };
 }
