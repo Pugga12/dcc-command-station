@@ -38,7 +38,9 @@ namespace DCC::Registry {
         uint8_t validityMask = 0;
         uint8_t dirtyMask = 0;
         Packets::Speed::SpeedState speed;
-        uint32_t functionMask = 0;
+        uint8_t f0_f4State = 0;
+        uint8_t f5_f12State = 0;
+        uint8_t f13_f20State = 0;
 
         bool isExtendedAddress() {
             return id > 127;
@@ -60,32 +62,25 @@ namespace DCC::Registry {
         }
 
         LocoSlot* getSlot(uint16_t locoId) {
-            xSemaphoreTake(semaphore, portMAX_DELAY);
             for (auto& slot : slots) {
                 if (slot.id == locoId) {
                     return &slot;
-                    xSemaphoreGive(semaphore);
                 }
             }
-            xSemaphoreGive(semaphore);
             return nullptr;
         }
 
         LocoSlot* getSlot(uint8_t cabId, bool useCache) {
-            xSemaphoreTake(semaphore, portMAX_DELAY);
             if (useCache && slotCacheByCab[cabId] != nullptr) {
-                xSemaphoreGive(semaphore);
                 return slotCacheByCab[cabId];
             } else {
                 for (auto& slot : slots) {
                     if (slot.id == cabId) {
-                        xSemaphoreGive(semaphore);
                         return &slot;
                     }
                 }
             }
 
-            xSemaphoreGive(semaphore);
             return nullptr;
         }
 
@@ -149,6 +144,115 @@ namespace DCC::Registry {
             }
         }
 
-        bool setSpeedMode()
+        bool setSpeedState(uint16_t address, Packets::Speed::SpeedState newState) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            LocoSlot* slot = getSlot(address);
+            if (newState.mode == Packets::Speed::DCC14 && slot->isExtendedAddress() || !slot) {
+                xSemaphoreGive(semaphore);
+                return false;
+            }
+            newState.clamp();
+            slot->speed = newState;
+            slot->validityMask |= SPEED_VALID;
+            slot->dirtyMask |= SPEED_VALID;
+            slot->lastTick = xTaskGetTickCount();
+            xSemaphoreGive(semaphore);
+
+            return true;
+        }
+
+        bool setSpeed(uint8_t cabId, Packets::Speed::SpeedState newState) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            LocoSlot* slot = getSlot(cabId, true);
+            if (newState.mode == Packets::Speed::DCC14 && slot->isExtendedAddress() || !slot) {
+                xSemaphoreGive(semaphore);
+                return false;
+            }
+            if (slot->status == TIMEOUT) slot->status = IN_USE;
+            newState.clamp();
+            slot->speed = newState;
+            slot->validityMask |= SPEED_VALID;
+            slot->dirtyMask |= SPEED_VALID;
+            slot->lastTick = xTaskGetTickCount();
+            xSemaphoreGive(semaphore);
+
+            return true;
+        }
+
+        bool setFunctionMasks(uint16_t address, uint8_t f0_f4State, uint8_t f5_f12State, uint8_t f13_f20State) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            LocoSlot* slot = getSlot(address);
+            if (!slot) {
+                xSemaphoreGive(semaphore);
+                return false;
+            }
+            if (slot->status == TIMEOUT) slot->status = IN_USE;
+            if (slot->f0_f4State != f0_f4State) {
+                slot->f0_f4State = f0_f4State & 0x1f;
+                slot->dirtyMask |= FUNCTION_1_VALID;
+            };
+            if (slot->f5_f12State != f5_f12State) {
+                slot->f5_f12State = f5_f12State;
+                slot->dirtyMask |= FUNCTION_2_VALID;
+            }
+            if (slot->f13_f20State != f13_f20State) {
+                slot->f13_f20State = f13_f20State;
+                slot->dirtyMask |= FUNCTION_3_VALID;
+            }
+            slot->lastTick = xTaskGetTickCount();
+            xSemaphoreGive(semaphore);
+            return true;
+        }
+
+        bool setFunctionMasks(uint8_t cabId, uint8_t f0_f4State, uint8_t f5_f12State, uint8_t f13_f20State) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            LocoSlot* slot = getSlot(cabId, true);
+            if (!slot) {
+                xSemaphoreGive(semaphore);
+                return false;
+            }
+            if (slot->status == TIMEOUT) slot->status = IN_USE;
+            if (slot->f0_f4State != f0_f4State) {
+                slot->f0_f4State = f0_f4State & 0x1f;
+                slot->dirtyMask |= FUNCTION_1_VALID;
+            };
+            if (slot->f5_f12State != f5_f12State) {
+                slot->f5_f12State = f5_f12State;
+                slot->dirtyMask |= FUNCTION_2_VALID;
+            }
+            if (slot->f13_f20State != f13_f20State) {
+                slot->f13_f20State = f13_f20State;
+                slot->dirtyMask |= FUNCTION_3_VALID;
+            }
+            slot->lastTick = xTaskGetTickCount();
+            xSemaphoreGive(semaphore);
+            return true;
+        }
+
+        bool keepAlive(uint16_t address) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            LocoSlot* slot = getSlot(address);
+            if (slot) {
+                slot->lastTick = xTaskGetTickCount();
+                slot->status = IN_USE;
+                xSemaphoreGive(semaphore);
+                return true;
+            }
+            xSemaphoreGive(semaphore);
+            return false;
+        }
+
+        bool keepAlive(uint8_t cabId) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+            LocoSlot* slot = getSlot(cabId, true);
+            if (slot) {
+                slot->lastTick = xTaskGetTickCount();
+                slot->status = IN_USE;
+                xSemaphoreGive(semaphore);
+                return true;
+            }
+            xSemaphoreGive(semaphore);
+            return false;
+        }
     };
 }
