@@ -1,7 +1,7 @@
 #include "pico/stdlib.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "registry.hpp"
+#include "locoregistry.hpp"
 #include "framing.hpp"
 #define PERIODIC_WAITING_PERIOD pdMS_TO_TICKS(30)
 

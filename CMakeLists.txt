@@ -16,12 +16,12 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_executable(app src/main.cpp)
-
+add_subdirectory(etl)
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_LIST_DIR})
  
 # pull in common dependencies
-target_link_libraries(app pico_stdlib FreeRTOS-Kernel FreeRTOS-Kernel-Heap4)
+target_link_libraries(app pico_stdlib FreeRTOS-Kernel FreeRTOS-Kernel-Heap4 etl::etl)
 target_compile_options(app PRIVATE -O2)
 
 # create map/bin/hex/uf2 file etc.
