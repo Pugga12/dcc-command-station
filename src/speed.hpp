@@ -7,7 +7,7 @@
 #include "types.hpp"
 #include "helpers.hpp"
 
-namespace DCC::Packets::Speed {
+namespace DCC::Packets {
     enum SpeedMode : uint8_t {
         DCC14,
         DCC28,
@@ -39,7 +39,7 @@ namespace DCC::Packets::Speed {
     };
 
     struct SpeedPacketAssembler {
-        void build(uint16_t locoAddress, SpeedState state, Packet* pkt) {
+        static void build(uint16_t locoAddress, SpeedState state, Packet* pkt) {
             switch (state.mode) {
                 case DCC14:
                     buildPacketImpl<DCC14>(locoAddress, state, pkt);

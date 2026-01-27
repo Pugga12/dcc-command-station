@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.13)
 # Pull in SDK (must be before project)
 set(PICO_SDK_PATH "/home/adama/DCC3-New/pico-sdk")
 set(FREERTOS_KERNEL_PATH "/home/adama/DCC3-New/FreeRTOS-Kernel")
+set(PICO_BOARD pico_w)
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Pull in FreeRTOS

@@ -12,25 +12,30 @@
 #define PRIO_REFRESH 2
 #define PRIO_TX 3
 
-static DCC::Registry::LocoRegistry registry;
+using namespace DCC;
+static LocoRegistry::LocoRegistry registry;
 QueueHandle_t stage2OutputQueue;
 QueueHandle_t stage1InputQueue;
 TaskHandle_t periodicSenderTaskHandle;
 TaskHandle_t stage1ProcessorTaskHandle;
 
 void vPeriodicSenderTask(void *pvParameter) {
-    auto registry = static_cast<DCC::Registry::LocoRegistry *>(pvParameter);
+    auto registry = static_cast<LocoRegistry::LocoRegistry *>(pvParameter);
 
     while (true) {
-        xSemaphoreTake(registry->semaphore, portMAX_DELAY);
-
-        xSemaphoreGive(registry->semaphore);
+        registry->forEachDirtySlot([](const LocoRegistry::LocoSlot& loco) {
+            if (loco.dirtyMask & LocoRegistry::ValidityMask::SPEED_VALID) {
+                Packet pkt;
+                Packets::SpeedPacketAssembler::build(loco.id, loco.speed, &pkt);
+                xQueueSend(stage1InputQueue, &pkt, portMAX_DELAY);
+            }
+        });
         vTaskDelay(PERIODIC_WAITING_PERIOD);
     }
 }
 
 void vStage2ToPIOFifo(void *pvParameter) {
-    DCC::Framing::BitstreamPacket *rxBuffer;
+    Framing::BitstreamPacket *rxBuffer;
 
     while (true) {
         if (xQueueReceive(stage2OutputQueue, &rxBuffer, portMAX_DELAY)) {
@@ -40,8 +45,8 @@ void vStage2ToPIOFifo(void *pvParameter) {
 }
 
 void vStage1ProcessorTask(void *pvParameter) {
-    DCC::Packet *rxBuffer;
-    DCC::Framing::BitstreamPacket txBuffer;
+    Packet *rxBuffer;
+    Framing::BitstreamPacket txBuffer;
 
     while (true) {
         if (xQueueReceive(stage1InputQueue, &rxBuffer, portMAX_DELAY)) {
@@ -59,7 +64,7 @@ int main() {
         vStage1ProcessorTask,
         "Packet to Bitstream Processor Task",
         configMINIMAL_STACK_SIZE,
-        NULL,
+        nullptr,
         PRIO_CREATE_BITSTREAM,
         &stage1ProcessorTaskHandle
     );

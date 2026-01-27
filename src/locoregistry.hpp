@@ -17,7 +17,7 @@
 #define MAX_CABS 31
 #include "etl/map.h"
 
-namespace DCC::Registry {
+namespace DCC::LocoRegistry {
     enum SlotStatus : uint8_t {
         ACTIVE = 0,
         TIMEOUT = 1,
@@ -37,9 +37,8 @@ namespace DCC::Registry {
         SlotStatus status = ACTIVE;
         TickType_t lastTick = 0;
 
-        uint8_t validityMask = 0;
         uint8_t dirtyMask = 0;
-        Packets::Speed::SpeedState speed;
+        Packets::SpeedState speed;
         uint8_t f0_f4State = 0;
         uint8_t f5_f12State = 0;
         uint8_t f13_f20State = 0;
@@ -104,7 +103,7 @@ namespace DCC::Registry {
             return false;
         }
 
-        bool setSpeedState(uint16_t locoId, Packets::Speed::SpeedState newState) {
+        bool setSpeedState(uint16_t locoId, Packets::SpeedState newState) {
             xSemaphoreTake(semaphore, portMAX_DELAY);
             auto slotPair = locoSlots.find(locoId);
 
@@ -116,7 +115,6 @@ namespace DCC::Registry {
             if (slot.status == TIMEOUT) slot.status = ACTIVE;
             newState.clamp();
             slot.speed = newState;
-            slot.validityMask |= SPEED_VALID;
             slot.dirtyMask |= SPEED_VALID;
             slot.lastTick = xTaskGetTickCount();
             xSemaphoreGive(semaphore);
@@ -166,6 +164,26 @@ namespace DCC::Registry {
             slot.status = ACTIVE;
             xSemaphoreGive(semaphore);
             return true;
+        }
+
+        template <typename Func>
+        void forEachDirtySlot(Func&& func) {
+            xSemaphoreTake(semaphore, portMAX_DELAY);
+
+            for (auto it = locoSlots.begin(); it != locoSlots.end(); ++it) {
+                auto slot = it->second;
+
+                if (slot.dirtyMask != 0) {
+                    slot.lastTick = xTaskGetTickCount();
+
+                    LocoSlot copy = slot;
+                    slot.dirtyMask = 0;
+
+                    func(copy);
+                }
+            }
+
+            xSemaphoreGive(semaphore);
         }
     };
 }
