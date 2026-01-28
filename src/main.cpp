@@ -3,6 +3,7 @@
 #include "task.h"
 #include "locoregistry.hpp"
 #include "framing.hpp"
+#include "functiongroups.hpp"
 #define PERIODIC_WAITING_PERIOD pdMS_TO_TICKS(30)
 
 #define PRIO_IDLE 0
@@ -19,17 +20,31 @@ QueueHandle_t stage1InputQueue;
 TaskHandle_t periodicSenderTaskHandle;
 TaskHandle_t stage1ProcessorTaskHandle;
 
+void periodicFunction(const LocoRegistry::LocoSlot& loco) {
+    Packet pkt;
+    if (loco.dirtyMask & LocoRegistry::ValidityMask::SPEED_VALID != 0) {
+        Packets::SpeedPacketAssembler::build(loco.id, loco.speed, &pkt);
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+    } else if (loco.dirtyMask & LocoRegistry::ValidityMask::FUNCTION_1_VALID != 0) {
+        Packets::FunctionGroupBuilder::buildFG1(loco.f0_f4State, loco.id, &pkt);
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+    } else if (loco.dirtyMask & LocoRegistry::ValidityMask::FUNCTION_2L_VALID != 0) {
+        Packets::FunctionGroupBuilder::buildFG2(loco.f5_f12State, loco.id, Packets::LOW, &pkt);
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+    } else if (loco.dirtyMask & LocoRegistry::ValidityMask::FUNCTION_3_VALID != 0) {
+        Packets::FunctionGroupBuilder::buildFG3(loco.f13_f20State, loco.id, &pkt);
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+        xQueueSend(stage1InputQueue, &pkt, pdMS_TO_TICKS(10));
+    }
+}
+
 void vPeriodicSenderTask(void *pvParameter) {
     auto registry = static_cast<LocoRegistry::LocoRegistry *>(pvParameter);
 
     while (true) {
-        registry->forEachDirtySlot([](const LocoRegistry::LocoSlot& loco) {
-            if (loco.dirtyMask & LocoRegistry::ValidityMask::SPEED_VALID) {
-                Packet pkt;
-                Packets::SpeedPacketAssembler::build(loco.id, loco.speed, &pkt);
-                xQueueSend(stage1InputQueue, &pkt, portMAX_DELAY);
-            }
-        });
+        registry->forEachDirtySlot(periodicFunction);
         vTaskDelay(PERIODIC_WAITING_PERIOD);
     }
 }

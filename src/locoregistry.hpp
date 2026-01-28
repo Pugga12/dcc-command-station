@@ -27,8 +27,9 @@ namespace DCC::LocoRegistry {
     enum ValidityMask : uint8_t {
         SPEED_VALID = 1 << 0,
         FUNCTION_1_VALID = 1 << 1,
-        FUNCTION_2_VALID = 1 << 2,
-        FUNCTION_3_VALID = 1 << 3,
+        FUNCTION_2L_VALID = 1 << 2,
+        FUNCTION_2H_VALID = 1 << 3,
+        FUNCTION_3_VALID = 1 << 4,
     };
 
     struct LocoSlot {
@@ -139,7 +140,12 @@ namespace DCC::LocoRegistry {
             };
             if (slot.f5_f12State != f5_f12State) {
                 slot.f5_f12State = f5_f12State;
-                slot.dirtyMask |= FUNCTION_2_VALID;
+                if (slot.f5_f12State & 0x0f != slot.f5_f12State & 0x0f) {
+                    slot.dirtyMask |= FUNCTION_2L_VALID;
+                }
+                if (slot.f5_f12State >> 4 != f5_f12State >> 4) {
+                    slot.dirtyMask |= FUNCTION_2H_VALID;
+                }
             }
             if (slot.f13_f20State != f13_f20State) {
                 slot.f13_f20State = f13_f20State;
